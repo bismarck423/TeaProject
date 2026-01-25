@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>个人中心 - 茶叶溯源系统</title>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/element-plus/dist/index.css">
+    <script src="https://unpkg.com/element-plus"></script>
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+    <style>
+        body { background-color: #f0f4e8; margin: 0; font-family: sans-serif; }
+        .navbar { background-color: #2c512c; color: white; padding: 1rem 2rem; display: flex; justify-content: space-between; align-items: center; }
+        .container { max-width: 1000px; margin: 2rem auto; padding: 0 1rem; }
+    </style>
+</head>
+<body>
+<div id="app">
+    <nav class="navbar">
+        <div style="font-weight:bold; font-size: 1.2rem;">🍃 个人管理中心</div>
+        <el-button text style="color:white" @click="location.href='index.html'">返回首页</el-button>
+    </nav>
+
+    <div class="container" v-if="user">
+        <el-card style="margin-bottom: 20px;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <h2>{{ user.username }}</h2>
+                    <el-tag :type="user.role === 'ADMIN' ? 'danger' : 'success'">
+                        {{ user.role === 'ADMIN' ? '管理员' : '普通用户' }}
+                    </el-tag>
+                </div>
+                <div style="text-align: right;">
+                    <p style="color: gray; margin: 5px 0;">当前余额</p>
+                    <span style="font-size: 24px; color: #6b8e23; font-weight: bold;">￥{{ user.balance }}</span>
+                </div>
+            </div>
+        </el-card>
+
+        <div v-if="user.role === 'ADMIN'">
+            <el-tabs type="border-card">
+                <el-tab-pane label="发布新茶">
+                    <el-form :model="newProduct" label-width="80px" style="max-width: 500px; margin-top: 20px;">
+                        <el-form-item label="茶叶名称">
+                            <el-input v-model="newProduct.name" placeholder="例如：西湖龙井"></el-input>
+                        </el-form-item>
+                        <el-form-item label="茶叶分类">
+                            <el-input v-model="newProduct.category" placeholder="例如：绿茶"></el-input>
+                        </el-form-item>
+                        <el-form-item label="单价">
+                            <el-input-number v-model="newProduct.price" :min="1"></el-input-number>
+                        </el-form-item>
+                        <el-form-item label="产地">
+                            <el-input v-model="newProduct.origin"></el-input>
+                        </el-form-item>
+                        <el-form-item>
+                            <el-button type="primary" @click="addProduct">确认发布</el-button>
+                        </el-form-item>
+                    </el-form>
+                </el-tab-pane>
+                <el-tab-pane label="用户列表">
+                    <el-table :data="allUsers" stripe>
+                        <el-table-column prop="username" label="用户名"></el-table-column>
+                        <el-table-column prop="balance" label="余额"></el-table-column>
+                        <el-table-column prop="role" label="角色"></el-table-column>
+                        <el-table-column prop="createTime" label="注册时间"></el-table-column>
+                    </el-table>
+                </el-tab-pane>
+            </el-tabs>
+        </div>
+
+        <div v-else>
+            <el-card header="我的购买记录">
+                <el-table :data="myOrders" empty-text="您还没有购买过任何茶叶">
+                    <el-table-column prop="orderNo" label="订单编号" width="180"></el-table-column>
+                    <el-table-column prop="amount" label="支付金额">
+                        <template #default="scope">￥{{ scope.row.amount }}</template>
+                    </el-table-column>
+                    <el-table-column label="状态">
+                        <template #default="scope">
+                            <el-tag type="success" v-if="scope.row.status===1">已完成</el-tag>
+                            <el-tag type="warning" v-else>待支付</el-tag>
+                        </template>
+                    </el-table-column>
+                    <el-table-column prop="createTime" label="时间"></el-table-column>
+                </el-table>
+            </el-card>
+        </div>
+    </div>
+</div>
+
+<script>
+    const { createApp, ref, onMounted } = Vue;
+    createApp({
+        setup() {
+            // 1. 读取本地存储的用户信息
+            const user = ref(JSON.parse(localStorage.getItem('user') || 'null'));
+
+            const allUsers = ref([]);
+            const myOrders = ref([]);
+            const newProduct = ref({ name: '', price: 100, category: '', origin: '' });
+
+            // 2. 数据加载逻辑
+            const loadData = async () => {
+                if (!user.value) {
+                    ElementPlus.ElMessage.warning('请先登录');
+                    setTimeout(() => location.href = 'login.html', 1000);
+                    return;
+                }
+
+                try {
+                    // 判断角色，请求不同接口
+                    if (user.value.role === 'ADMIN') {
+                        const res = await axios.get('/api/tea/admin/users');
+                        allUsers.value = res.data;
+                    } else {
+                        const res = await axios.get('/api/tea/user/orders');
+                        myOrders.value = res.data;
+                    }
+                } catch (err) {
+                    console.error('数据加载失败:', err);
+                    // 如果是 401 或 session 过期，可能需要重新登录
+                }
+            };
+
+            // 3. 管理员发布商品功能
+            const addProduct = async () => {
+                // 这里需要你在 TeaController 补充 /api/tea/add 接口，暂时留空演示
+                ElementPlus.ElMessage.success('前端逻辑已通，需后端补充 save 接口');
+            };
+
+            onMounted(loadData);
+
+            return { user, allUsers, myOrders, newProduct, addProduct };
+        }
+    }).use(ElementPlus).mount('#app');
+</script>
+</body>
+</html>

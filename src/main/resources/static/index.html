@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>茶叶溯源销售与文化展示系统</title>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/element-plus/dist/index.css">
+    <script src="https://unpkg.com/element-plus"></script>
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+    <style>
+        :root {
+            --tea-dark: #2c512c;   /* 深茶绿 */
+            --tea-main: #6b8e23;   /* 草本绿 */
+            --tea-light: #f0f4e8;  /* 浅茶青 */
+            --tea-accent: #a9ba7a; /* 嫩芽绿 */
+        }
+        body {
+            margin: 0;
+            background-color: var(--tea-light);
+            font-family: "Helvetica Neue", Helvetica, "PingFang SC", sans-serif;
+        }
+        /* 导航栏样式 */
+        .navbar {
+            background-color: var(--tea-dark);
+            color: white;
+            padding: 0.8rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+        }
+        .logo { font-size: 1.5rem; font-weight: bold; letter-spacing: 2px; }
+
+        /* 商品卡片样式 */
+        .tea-container { max-width: 1200px; margin: 2rem auto; padding: 0 1rem; }
+        .tea-card {
+            background: white;
+            border-radius: 12px;
+            overflow: hidden;
+            transition: transform 0.3s;
+            margin-bottom: 20px;
+            border: 1px solid #e0e0e0;
+        }
+        .tea-card:hover { transform: translateY(-5px); box-shadow: 0 10px 20px rgba(0,0,0,0.1); }
+        .tea-info { padding: 1.5rem; }
+        .tea-name { font-size: 1.25rem; color: var(--tea-dark); margin: 0 0 0.5rem 0; }
+        .tea-price { color: #f56c6c; font-size: 1.4rem; font-weight: bold; margin-bottom: 1rem; }
+
+        .footer { text-align: center; padding: 2rem; color: #666; font-size: 0.9rem; }
+    </style>
+</head>
+<body>
+<div id="app">
+    <nav class="navbar">
+        <div class="logo">🍃 茶叶溯源系统</div>
+        <div style="display: flex; align-items: center; gap: 15px;">
+            <el-button text style="color:white" @click="location.href='index.html'">首页</el-button>
+            <el-button text style="color:white">茶文化</el-button>
+
+            <template v-if="user">
+                <span style="color: var(--tea-accent); font-weight: bold;">{{ user.username }}</span>
+                <el-tag type="warning" effect="dark" round>余额: ￥{{ user.balance }}</el-tag>
+                <el-button type="success" size="small" round @click="goProfile">个人中心</el-button>
+                <el-button text style="color: #ffcccc;" @click="handleLogout">退出</el-button>
+            </template>
+            <el-button v-else type="primary" size="small" @click="location.href='login.html'">登录 / 注册</el-button>
+        </div>
+    </nav>
+
+    <div class="tea-container">
+        <el-row :gutter="20">
+            <el-col :xs="24" :sm="12" :md="8" v-for="tea in teaList" :key="tea.id">
+                <div class="tea-card">
+                    <img :src="tea.image || 'https://images.unsplash.com/photo-1597481499750-3e6b22637e12?w=500'"
+                         style="width: 100%; height: 200px; object-fit: cover;">
+                    <div class="tea-info">
+                        <h3 class="tea-name">{{ tea.name }}</h3>
+                        <p style="color: #666; font-size: 0.9rem;">分类：{{ tea.category }} | 产地：{{ tea.origin }}</p>
+                        <div class="tea-price">￥{{ tea.price }}</div>
+                        <div style="display: flex; gap: 10px;">
+                            <el-button type="primary" plain @click="showTrace(tea.traceCode)">查看溯源</el-button>
+                            <el-button type="success" @click="handleBuy(tea)">立即购买</el-button>
+                        </div>
+                    </div>
+                </div>
+            </el-col>
+        </el-row>
+    </div>
+
+    <el-dialog v-model="dialogVisible" title="茶叶溯源档案" width="50%">
+        <div v-if="activeTea" style="line-height: 2;">
+            <el-descriptions :column="1" border>
+                <el-descriptions-item label="产品名称">{{ activeTea.name }}</el-descriptions-item>
+                <el-descriptions-item label="溯源编码">
+                    <el-tag size="small">{{ activeTea.traceCode }}</el-tag>
+                </el-descriptions-item>
+                <el-descriptions-item label="采摘时间">{{ activeTea.pickTime || '2025-春季' }}</el-descriptions-item>
+                <el-descriptions-item label="检测结果">
+                    <span style="color: #67c23a;">农残检测合格 ✓</span>
+                </el-descriptions-item>
+            </el-descriptions>
+        </div>
+    </el-dialog>
+
+    <el-dialog v-model="payVisible" title="沙箱模拟支付" width="30%" center>
+        <div style="text-align: center;" v-if="currentOrder">
+            <p style="color: #909399;">订单号：{{ currentOrder.orderNo }}</p>
+            <h3 style="margin: 20px 0;">支付金额：<span style="color: #f56c6c;">￥{{ currentOrder.amount }}</span></h3>
+            <p style="font-size: 12px; color: #e6a23c;">* 此操作将直接从您的账户余额中扣除</p>
+        </div>
+        <template #footer>
+            <el-button @click="payVisible = false">取消</el-button>
+            <el-button type="primary" @click="confirmPay">确认扣款</el-button>
+        </template>
+    </el-dialog>
+
+    <footer class="footer">
+        <p>© 2026 茶叶溯源销售系统 - 毕业设计演示</p>
+    </footer>
+</div>
+
+<script>
+    const { createApp, ref, onMounted } = Vue;
+    createApp({
+        setup() {
+            const teaList = ref([]);
+            const user = ref(null);
+            const dialogVisible = ref(false);
+            const activeTea = ref(null);
+
+            // 支付相关变量
+            const payVisible = ref(false);
+            const currentOrder = ref({});
+
+            // 初始化：读取用户状态和列表
+            const init = () => {
+                const savedUser = localStorage.getItem('user');
+                if (savedUser) {
+                    user.value = JSON.parse(savedUser);
+                }
+                fetchTeas();
+            };
+
+            const fetchTeas = async () => {
+                try {
+                    const res = await axios.get('/api/tea/list');
+                    teaList.value = res.data;
+                } catch (err) {
+                    console.error("加载列表失败", err);
+                }
+            };
+
+            const showTrace = async (code) => {
+                try {
+                    const res = await axios.get(`/api/tea/trace/${code}`);
+                    activeTea.value = res.data;
+                    dialogVisible.value = true;
+                } catch (err) {
+                    ElementPlus.ElMessage.error('获取溯源信息失败');
+                }
+            };
+
+            // 跳转个人中心
+            const goProfile = () => {
+                window.location.href = 'profile.html';
+            };
+
+            // 退出登录
+            const handleLogout = () => {
+                localStorage.removeItem('user');
+                user.value = null;
+                ElementPlus.ElMessage.success('已退出登录');
+                location.reload();
+            };
+
+            // --- 购买逻辑 (沙箱支付流程) ---
+            const handleBuy = async (tea) => {
+                if (!user.value) {
+                    ElementPlus.ElMessage.warning('请先登录后购买');
+                    return;
+                }
+                try {
+                    // 1. 调用后端创建订单
+                    const res = await axios.post('/api/tea/order/create', {
+                        amount: tea.price
+                    });
+                    currentOrder.value = {
+                        orderNo: res.data.orderNo,
+                        amount: res.data.amount,
+                        teaName: tea.name
+                    };
+                    payVisible.value = true;
+                } catch (err) {
+                    ElementPlus.ElMessage.error('创建订单失败');
+                }
+            };
+
+            const refreshUserInfo = async () => {
+                // 假设你后端有一个 /api/auth/me 或者利用登录接口刷新
+                // 这里我们利用 login.html 里存的逻辑，或者简单地重新请求一下数据
+                // 只要页面刷新或重新挂载，就会读取最新的 Session/Database
+
+                // 为了最直观，我们直接修改 confirmPay 成功后的逻辑
+            };
+
+            const confirmPay = async () => {
+                try {
+                    const res = await axios.post(`/api/tea/pay/sandbox?orderNo=${currentOrder.value.orderNo}`);
+
+                    if (res.data === 'SUCCESS') {
+                        ElementPlus.ElMessage.success('支付成功！数据库余额已更新');
+                        payVisible.value = false;
+
+                        const userRes = await axios.get('/api/tea/user/me');
+                        if (userRes.data) {
+                            user.value = userRes.data; // 更新页面显示
+                            localStorage.setItem('user', JSON.stringify(userRes.data)); // 同步缓存
+                        }
+                    
+
+                        setTimeout(() => {
+                            location.reload();
+                        }, 1000);
+
+                    } else {
+                        // 显示具体的错误原因（比如余额不足）
+                        ElementPlus.ElMessage.error(res.data);
+                    }
+                } catch (err) {
+                    ElementPlus.ElMessage.error('系统异常，请检查控制台');
+                    console.error(err);
+                }
+            };
+
+            onMounted(init);
+
+            return {
+                teaList, user, dialogVisible, activeTea,
+                payVisible, currentOrder,
+                showTrace, goProfile, handleLogout, handleBuy, confirmPay
+            };
+        }
+    }).use(ElementPlus).mount('#app');
+</script>
+</body>
+</html>
