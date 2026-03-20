@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>茶叶溯源 - 管理控制台</title>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/element-plus/dist/index.css">
+    <script src="https://unpkg.com/element-plus"></script>
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+    <script src="https://unpkg.com/@element-plus/icons-vue"></script>
+    <style>
+        body { margin: 0; background-color: #f0f2f5; font-family: 'PingFang SC', sans-serif; }
+        .sidebar { width: 220px; min-height: 100vh; background: #001529; color: white; float: left; position: fixed; height: 100%; overflow-y: auto;}
+        .main { margin-left: 220px; padding: 20px; }
+        .logo { height: 60px; line-height: 60px; text-align: center; font-size: 18px; font-weight: bold; background: #002140; }
+        .stat-card { background: white; padding: 20px; border-radius: 8px; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 2px 12px 0 rgba(0,0,0,0.05); margin-bottom: 20px; }
+        .stat-value { font-size: 24px; font-weight: bold; color: #333; margin-top: 5px;}
+        .stat-label { color: #888; font-size: 14px; }
+        /* 上传组件样式 */
+        .avatar-uploader .el-upload { border: 1px dashed #d9d9d9; border-radius: 6px; cursor: pointer; position: relative; overflow: hidden; transition: .2s; }
+        .avatar-uploader .el-upload:hover { border-color: #409EFF; }
+        .avatar-uploader-icon { font-size: 28px; color: #8c939d; width: 100px; height: 100px; text-align: center; line-height: 100px; }
+        .uploaded-img { width: 100px; height: 100px; display: block; object-fit: cover; }
+    </style>
+</head>
+<body>
+<div id="app">
+    <div class="sidebar">
+        <div class="logo">🍃 溯源管理系统</div>
+        <el-menu background-color="#001529" text-color="#fff" active-text-color="#409EFF" :default-active="activeMenu" @select="key => activeMenu = key" style="border-right: none;">
+            <template v-if="isAdmin">
+                <el-menu-item index="overview"><el-icon><Data-Line /></el-icon>数据看板</el-menu-item>
+                <el-menu-item index="product"><el-icon><Goods /></el-icon>商品管理</el-menu-item>
+                <el-menu-item index="banner"><el-icon><Picture /></el-icon>轮播配置</el-menu-item>
+                <el-menu-item index="allOrder"><el-icon><List /></el-icon>全站订单</el-menu-item>
+                <el-menu-item index="userMgr"><el-icon><User /></el-icon>用户管理</el-menu-item>
+            </template>
+            <template v-else>
+                <el-menu-item index="myOrder"><el-icon><List /></el-icon>我的订单</el-menu-item>
+                <el-menu-item index="profile"><el-icon><User /></el-icon>个人信息</el-menu-item>
+            </template>
+        </el-menu>
+    </div>
+
+    <div class="main">
+        <div style="background: white; padding: 15px; border-radius: 8px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 1px 4px rgba(0,21,41,.08);">
+            <div style="font-size: 16px; font-weight: bold;">{{ pageTitle }}</div>
+            <div>
+                <span style="margin-right: 15px; color: #666;">{{ user?.username }} ({{ user?.role === 'ADMIN' ? '管理员' : '用户' }})</span>
+                <el-button size="small" @click="location.href='index.html'">返回首页</el-button>
+                <el-button size="small" type="danger" plain @click="logout">退出登录</el-button>
+            </div>
+        </div>
+
+        <div v-if="activeMenu === 'overview' && isAdmin">
+            <el-row :gutter="20">
+                <el-col :span="6"><div class="stat-card"><div><div class="stat-label">总销量</div><div class="stat-value">{{ stats.totalSales || 0 }} 单</div></div><el-icon size="40" color="#67C23A"><Money /></el-icon></div></el-col>
+                <el-col :span="6"><div class="stat-card"><div><div class="stat-label">商品总数</div><div class="stat-value">{{ stats.productCount || 0 }} 件</div></div><el-icon size="40" color="#E6A23C"><Goods /></el-icon></div></el-col>
+                <el-col :span="6"><div class="stat-card"><div><div class="stat-label">注册用户</div><div class="stat-value">{{ stats.userCount || 0 }} 人</div></div><el-icon size="40" color="#409EFF"><User /></el-icon></div></el-col>
+                <el-col :span="6"><div class="stat-card"><div><div class="stat-label">七日活跃</div><div class="stat-value">158 次</div></div><el-icon size="40" color="#F56C6C"><Trend-Charts /></el-icon></div></el-col>
+            </el-row>
+            <el-card shadow="never">
+                <template #header><span>茶叶品类销售趋势</span></template>
+                <div id="chart" style="width: 100%; height: 350px;"></div>
+            </el-card>
+        </div>
+
+        <div v-if="activeMenu === 'product' && isAdmin">
+            <el-card shadow="never">
+                <template #header>
+                    <div style="display: flex; justify-content: space-between;">
+                        <span>商品列表</span>
+                        <el-button type="primary" @click="openProductDialog(null)">发布新商品</el-button>
+                    </div>
+                </template>
+                <el-table :data="products" border stripe>
+                    <el-table-column label="商品图片" width="100">
+                        <template #default="{row}">
+                            <img :src="row.imageUrl || 'https://via.placeholder.com/80?text=Tea'" style="width: 60px; height: 60px; border-radius: 4px; object-fit: cover;">
+                        </template>
+                    </el-table-column>
+                    <el-table-column prop="name" label="名称"></el-table-column>
+                    <el-table-column prop="category" label="分类" width="100"></el-table-column>
+                    <el-table-column prop="price" label="价格" width="100">
+                        <template #default="{row}">￥{{ row.price }}</template>
+                    </el-table-column>
+                    <el-table-column prop="stock" label="库存" width="100"></el-table-column>
+                    <el-table-column prop="traceCode" label="溯源码"></el-table-column>
+                    <el-table-column label="操作" width="180">
+                        <template #default="{row}">
+                            <el-button size="small" @click="openProductDialog(row)">编辑</el-button>
+                            <el-button size="small" type="danger" @click="deleteProduct(row.id)">删除</el-button>
+                        </template>
+                    </el-table-column>
+                </el-table>
+            </el-card>
+        </div>
+
+        <div v-if="activeMenu === 'banner' && isAdmin">
+            <el-card shadow="never">
+                <template #header>
+                    <div style="display: flex; justify-content: space-between;">
+                        <span>首页轮播图配置</span>
+                        <el-button type="primary" @click="openBannerDialog(null)">添加轮播图</el-button>
+                    </div>
+                </template>
+                <el-table :data="banners" border>
+                    <el-table-column label="图片预览" width="250">
+                        <template #default="{row}">
+                            <img :src="row.imageUrl" style="width: 200px; height: 100px; object-fit: cover; border-radius: 4px;">
+                        </template>
+                    </el-table-column>
+                    <el-table-column prop="title" label="标题"></el-table-column>
+                    <el-table-column prop="sort" label="排序权重"></el-table-column>
+                    <el-table-column label="操作">
+                        <template #default="{row}">
+                            <el-button size="small" type="danger" @click="deleteBanner(row.id)">移除</el-button>
+                        </template>
+                    </el-table-column>
+                </el-table>
+            </el-card>
+        </div>
+
+        <div v-if="activeMenu === 'allOrder' && isAdmin">
+            <el-card header="全站订单管理" shadow="never">
+                <el-table :data="allOrders" stripe>
+                    <el-table-column prop="orderNo" label="订单号"></el-table-column>
+                    <el-table-column prop="amount" label="金额"></el-table-column>
+                    <el-table-column label="状态">
+                        <template #default="{row}">
+                            <el-tag :type="getStatusType(row.status)">{{ getStatusText(row.status) }}</el-tag>
+                        </template>
+                    </el-table-column>
+                    <el-table-column label="操作">
+                        <template #default="{row}">
+                            <el-button v-if="row.status===1" type="success" size="small" @click="shipOrder(row.id)">发货</el-button>
+                            <span v-else style="color:#999">-</span>
+                        </template>
+                    </el-table-column>
+                </el-table>
+            </el-card>
+        </div>
+
+        <div v-if="activeMenu === 'userMgr' && isAdmin">
+            <el-card header="注册用户列表" shadow="never">
+                <el-table :data="allUsers" stripe>
+                    <el-table-column prop="id" label="ID" width="80"></el-table-column>
+                    <el-table-column prop="username" label="用户名"></el-table-column>
+                    <el-table-column prop="balance" label="余额"></el-table-column>
+                    <el-table-column prop="role" label="角色">
+                        <template #default="{row}">
+                            <el-tag :type="row.role==='ADMIN'?'danger':'info'">{{ row.role }}</el-tag>
+                        </template>
+                    </el-table-column>
+                    <el-table-column prop="createTime" label="注册时间"></el-table-column>
+                </el-table>
+            </el-card>
+        </div>
+
+        <div v-if="activeMenu === 'myOrder' && !isAdmin">
+            <el-card header="我的订单记录" shadow="never">
+                <el-table :data="myOrders" stripe empty-text="您还没有购买过任何茶叶">
+                    <el-table-column prop="orderNo" label="订单编号" width="180"></el-table-column>
+
+                    <el-table-column prop="teaName" label="商品"></el-table-column>
+
+                    <el-table-column prop="amount" label="支付金额">
+                        <template #default="scope">￥{{ scope.row.amount }}</template>
+                    </el-table-column>
+
+                    <el-table-column label="状态">
+                        <template #default="{row}">
+                            <el-tag :type="getStatusType(row.status)">{{ getStatusText(row.status) }}</el-tag>
+                        </template>
+                    </el-table-column>
+
+                    <el-table-column label="物流动态" width="220">
+                        <template #default="scope">
+                            <span style="color: #409EFF; font-size: 12px;">{{ scope.row.expressInfo || '暂无数据' }}</span>
+                        </template>
+                    </el-table-column>
+
+                    <el-table-column prop="createTime" label="时间"></el-table-column>
+                </el-table>
+            </el-card>
+        </div>
+
+        <div v-if="activeMenu === 'profile' && !isAdmin">
+            <el-card header="账户信息" shadow="never" style="width: 500px;">
+                <el-descriptions border :column="1">
+                    <el-descriptions-item label="用户名">{{ user.username }}</el-descriptions-item>
+                    <el-descriptions-item label="当前余额">
+                        <span style="color: #f56c6c; font-weight: bold;">￥{{ user.balance }}</span>
+                    </el-descriptions-item>
+                    <el-descriptions-item label="注册时间">{{ user.createTime }}</el-descriptions-item>
+                </el-descriptions>
+            </el-card>
+        </div>
+
+    </div>
+
+    <el-dialog v-model="productDialog.visible" :title="productDialog.title" width="600px">
+        <el-form :model="productForm" label-width="80px">
+            <el-form-item label="商品图片">
+                <el-upload
+                        class="avatar-uploader"
+                        action="/api/file/upload"
+                        :show-file-list="false"
+                        :on-success="handleProductImgSuccess">
+                    <img v-if="productForm.imageUrl" :src="productForm.imageUrl" class="uploaded-img">
+                    <el-icon v-else class="avatar-uploader-icon"><Plus /></el-icon>
+                </el-upload>
+            </el-form-item>
+            <el-form-item label="名称"><el-input v-model="productForm.name"></el-input></el-form-item>
+            <el-form-item label="分类"><el-input v-model="productForm.category" placeholder="如：绿茶"></el-input></el-form-item>
+            <el-form-item label="产地"><el-input v-model="productForm.origin"></el-input></el-form-item>
+            <el-form-item label="价格"><el-input-number v-model="productForm.price"></el-input-number></el-form-item>
+            <el-form-item label="库存"><el-input-number v-model="productForm.stock"></el-input-number></el-form-item>
+            <el-form-item label="溯源码"><el-input v-model="productForm.traceCode" placeholder="自动生成可不填"></el-input></el-form-item>
+            <el-form-item label="生长环境"><el-input type="textarea" v-model="productForm.growthEnv"></el-input></el-form-item>
+            <el-form-item label="制作工艺"><el-input type="textarea" v-model="productForm.manufacture"></el-input></el-form-item>
+        </el-form>
+        <template #footer><el-button type="primary" @click="saveProduct">保存</el-button></template>
+    </el-dialog>
+
+    <el-dialog v-model="bannerDialog.visible" title="配置轮播图" width="500px">
+        <el-form :model="bannerForm" label-width="80px">
+            <el-form-item label="上传图片">
+                <el-upload
+                        class="avatar-uploader"
+                        action="/api/file/upload"
+                        :show-file-list="false"
+                        :on-success="handleBannerImgSuccess">
+                    <img v-if="bannerForm.imageUrl" :src="bannerForm.imageUrl" class="uploaded-img" style="width: 100%;">
+                    <el-icon v-else class="avatar-uploader-icon"><Plus /></el-icon>
+                </el-upload>
+            </el-form-item>
+            <el-form-item label="标题"><el-input v-model="bannerForm.title"></el-input></el-form-item>
+            <el-form-item label="排序"><el-input-number v-model="bannerForm.sort" :min="1"></el-input-number></el-form-item>
+        </el-form>
+        <template #footer><el-button type="primary" @click="saveBanner">保存</el-button></template>
+    </el-dialog>
+</div>
+
+<script>
+    const { createApp, ref, reactive, computed, onMounted, nextTick } = Vue;
+    const { ElMessage } = ElementPlus;
+    const app = createApp({
+        setup() {
+            const user = ref(JSON.parse(localStorage.getItem('user') || '{}'));
+            const activeMenu = ref('overview');
+            const products = ref([]);
+            const banners = ref([]);
+            const allOrders = ref([]);
+            const myOrders = ref([]);
+            const allUsers = ref([]);
+            const stats = ref({});
+
+            // 表单相关
+            const productDialog = reactive({ visible: false, title: '' });
+            const productForm = ref({});
+            const bannerDialog = reactive({ visible: false });
+            const bannerForm = ref({});
+
+            const isAdmin = computed(() => user.value.role === 'ADMIN');
+            const pageTitle = computed(() => {
+                const map = { overview:'数据看板', product:'商品管理', banner:'轮播图配置', allOrder:'全站订单', userMgr:'用户管理', myOrder:'我的订单', profile:'个人信息' };
+                return map[activeMenu.value];
+            });
+
+            // 初始化加载
+            const loadData = async () => {
+                if (!user.value.id) {
+                    location.href = 'login.html';
+                    return;
+                }
+
+                // 刷新用户信息
+                try {
+                    const uRes = await axios.get('/api/tea/user/me');
+                    user.value = uRes.data;
+                    localStorage.setItem('user', JSON.stringify(uRes.data));
+                } catch(e) {}
+
+                if (isAdmin.value) {
+                    // 管理员数据
+                    const pRes = await axios.get('/api/tea/list');
+                    products.value = pRes.data;
+
+                    const bRes = await axios.get('/api/tea/banners');
+                    banners.value = bRes.data || [];
+
+                    const oRes = await axios.get('/api/tea/admin/orders');
+                    allOrders.value = oRes.data;
+
+                    const uRes = await axios.get('/api/tea/admin/users');
+                    allUsers.value = uRes.data;
+
+                    const sRes = await axios.get('/api/tea/admin/stats');
+                    stats.value = sRes.data;
+
+                    if(activeMenu.value === 'overview') {
+                        initChart(stats.value.chartData);
+                    }
+                } else {
+                    // 普通用户数据
+                    if(activeMenu.value === 'overview') activeMenu.value = 'myOrder'; // 修正默认页
+                    const res = await axios.get('/api/tea/user/orders');
+                    myOrders.value = res.data;
+                }
+            };
+
+            // ECharts 初始化
+            const initChart = (data) => {
+                nextTick(() => {
+                    const chartDom = document.getElementById('chart');
+                    if(chartDom) {
+                        const chart = echarts.init(chartDom);
+                        chart.setOption({
+                            tooltip: { trigger: 'axis' },
+                            xAxis: { type: 'category', data: ['周一', '周二', '周三', '周四', '周五', '周六', '周日'] },
+                            yAxis: { type: 'value' },
+                            series: [{
+                                name: '销量',
+                                type: 'line',
+                                smooth: true,
+                                data: data || [0,0,0,0,0,0,0],
+                                itemStyle: { color: '#6b8e23' },
+                                areaStyle: { opacity: 0.2 }
+                            }]
+                        });
+                    }
+                });
+            };
+
+            // --- 商品操作 ---
+            const openProductDialog = (row) => {
+                productForm.value = row ? {...row} : { price: 100, stock: 100 };
+                productDialog.title = row ? '编辑商品' : '发布新商品';
+                productDialog.visible = true;
+            };
+            const handleProductImgSuccess = (res) => { productForm.value.imageUrl = res; };
+            const saveProduct = async () => {
+                await axios.post('/api/tea/product/save', productForm.value);
+                productDialog.visible = false;
+                ElMessage.success('保存成功');
+                loadData();
+            };
+            const deleteProduct = async (id) => {
+                if(!confirm('确认删除?')) return;
+                await axios.post(`/api/tea/product/delete?id=${id}`);
+                loadData();
+            };
+
+            // --- 轮播图操作 ---
+            const openBannerDialog = () => {
+                bannerForm.value = { sort: 1 };
+                bannerDialog.visible = true;
+            };
+            const handleBannerImgSuccess = (res) => { bannerForm.value.imageUrl = res; };
+            const saveBanner = async () => {
+                await axios.post('/api/tea/banner/save', bannerForm.value);
+                bannerDialog.visible = false;
+                ElMessage.success('轮播图已更新');
+                loadData();
+            };
+            const deleteBanner = async (id) => {
+                if(!confirm('确认移除?')) return;
+                await axios.post(`/api/tea/banner/delete?id=${id}`);
+                loadData();
+            };
+
+            // --- 订单操作 ---
+            const shipOrder = async (id) => {
+                await axios.post(`/api/tea/order/ship?orderId=${id}`);
+                ElMessage.success('发货成功');
+                loadData();
+            };
+
+            const getStatusText = (s) => ['待支付', '已支付', '已发货'][s] || '未知';
+            const getStatusType = (s) => ['info', 'warning', 'success'][s] || '';
+
+            const logout = () => {
+                localStorage.removeItem('user');
+                location.href = 'login.html';
+            };
+
+            onMounted(loadData);
+
+            return {
+                user, activeMenu, isAdmin, pageTitle,
+                products, banners, allOrders, myOrders, allUsers, stats,
+                productDialog, productForm, bannerDialog, bannerForm,
+                openProductDialog, handleProductImgSuccess, saveProduct, deleteProduct,
+                openBannerDialog, handleBannerImgSuccess, saveBanner, deleteBanner,
+                shipOrder, getStatusText, getStatusType, logout
+            };
+        }
+    });
+    // 注册图标
+    for (const [key, component] of Object.entries(ElementPlusIconsVue)) {
+        app.component(key, component)
+    }
+    app.use(ElementPlus).mount('#app');
+</script>
+</body>
+</html>
