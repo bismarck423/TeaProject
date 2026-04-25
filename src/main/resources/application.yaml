@@ -1,16 +1,22 @@
 server:
-  port: 8080
+  port: 9090
+  servlet:
+    encoding:
+      charset: UTF-8
+      force: true
+      enabled: true
 
 spring:
   datasource:
-    # 这里的 tea_db 要和你创建的数据库名一致
-    url: jdbc:mysql://localhost:3306/tea_db?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=GMT%2B8
-    username: root        # 你的数据库用户名
-    password: admin@123    # 你的数据库密码
+    url: jdbc:mysql://localhost:3306/tea_db?useUnicode=true&characterEncoding=utf-8&useSSL=false&allowPublicKeyRetrieval=true
+    username: root
+    password: admin@123
     driver-class-name: com.mysql.cj.jdbc.Driver
+  jackson:
+    time-zone: GMT+8
+    date-format: yyyy-MM-dd HH:mm:ss
 
-# MyBatis Plus 配置
 mybatis-plus:
   configuration:
-    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl # 在控制台打印SQL，方便你查看程序干了什么
-    map-underscore-to-camel-case: true # 自动把数据库的下划线转为Java的驼峰命名
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+    map-underscore-to-camel-case: true

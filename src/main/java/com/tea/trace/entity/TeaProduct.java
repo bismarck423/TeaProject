@@ -16,8 +16,9 @@ public class TeaProduct {
     private String origin;    // 产地
     private BigDecimal price; // 价格
     private Integer stock;    // 库存
-    private String category;  // 分类
+    private Long categoryId;  // 分类
     private String traceCode; // 溯源码
+    private String imageUrl; //茶叶图片
     private String growthEnv;    // 产地环境（土壤、气候）
     private String plantingProcess; // 种植过程（施肥、采摘）
     private String manufacture;  // 制作工艺（杀青、揉捻等）

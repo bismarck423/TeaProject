@@ -1,9 +1,9 @@
 package com.tea.trace.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
-import com.tea.trace.entity.TeaBanner;
+import com.tea.trace.entity.TeaCart;
 import org.apache.ibatis.annotations.Mapper;
 
 @Mapper
-public interface BannerMapper extends BaseMapper<TeaBanner> {
+public interface CartMapper extends BaseMapper<TeaCart> {
 }

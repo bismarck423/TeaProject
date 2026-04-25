@@ -2,58 +2,131 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <title>茶叶溯源系统 - 登录/注册</title>
+    <title>入座 - 茶叶溯源系统</title>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <link rel="stylesheet" href="https://unpkg.com/element-plus/dist/index.css">
     <script src="https://unpkg.com/element-plus"></script>
     <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
     <style>
-        body { background: linear-gradient(135deg, #f0f4e8 0%, #d5e4cf 100%); height: 100vh; display: flex; align-items: center; justify-content: center; margin: 0; }
-        .login-box { background: white; padding: 40px; border-radius: 15px; box-shadow: 0 10px 25px rgba(44, 81, 44, 0.1); width: 400px; }
-        .title { color: #2c512c; text-align: center; margin-bottom: 30px; font-size: 24px; font-weight: bold; }
-        .captcha-img { cursor: pointer; height: 40px; border-radius: 4px; }
-        .submit-btn { background-color: #6b8e23 !important; border: none !important; width: 100%; }
+        :root {
+            /* 真正的高级新中式色卡 (与大厅绝对统一) */
+            --tea-bg: #F9F8F4;
+            --tea-primary: #4A5D4E;     /* 松石绿：主色调 */
+            --tea-dark: #2C362F;        /* 墨黑：主标题 */
+            --tea-accent: #8C634A;      /* 沉香棕 */
+            --tea-border: #E8E5DF;
+            --tea-text-main: #4A4A4A;
+            --tea-text-sub: #888888;
+            --tea-bg-start: #eef3ec;    /* 渐变起：极浅绿 */
+            --tea-bg-end: #dce7d7;      /* 渐变止：豆沙绿 */
+
+            /* 暴力覆盖 Element Plus 的原生色彩体系 */
+            --el-color-primary: var(--tea-primary) !important;
+            --el-color-success: #5c7a65 !important;
+            --el-text-color-primary: var(--tea-dark) !important;
+            --el-border-radius-base: 4px !important; /* 偏硬朗的中式边角 */
+        }
+
+        body {
+            margin: 0;
+            font-family: "PingFang SC", "Helvetica Neue", sans-serif;
+            /* 全局淡绿色渐变背景 */
+            background: linear-gradient(135deg, var(--tea-bg-start) 0%, var(--tea-bg-end) 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--tea-text-main);
+        }
+
+        /* 注入中式灵魂：衬线字体专用类 */
+        .serif-text {
+            font-family: "Noto Serif SC", "Songti SC", "STZhongsong", serif;
+            font-weight: 600;
+        }
+
+        /* 登录卡片：温润毛玻璃质感 */
+        .login-box {
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(15px);
+            -webkit-backdrop-filter: blur(15px);
+            border: 1px solid rgba(255, 255, 255, 0.6);
+            padding: 45px 50px;
+            border-radius: 8px;
+            box-shadow: 0 12px 35px rgba(74, 93, 78, 0.1);
+            width: 360px;
+            text-align: center;
+        }
+
+        .title {
+            color: var(--tea-dark);
+            margin-bottom: 35px;
+            font-size: 28px;
+            letter-spacing: 4px;
+        }
+
+        .captcha-img {
+            cursor: pointer;
+            height: 38px;
+            border-radius: 4px;
+            border: 1px solid var(--tea-border);
+            transition: 0.3s;
+        }
+        .captcha-img:hover { border-color: var(--tea-primary); }
+
+        .submit-btn {
+            width: 100%;
+            margin-top: 15px;
+            padding: 20px 0; /* 拉高按钮，增加呼吸感 */
+            font-size: 16px;
+            letter-spacing: 4px;
+        }
+
+        /* 深度定制 Element Plus 的 Tabs，去掉多余的蓝色 */
+        .el-tabs__item { font-size: 16px; color: var(--tea-text-sub); }
+        .el-tabs__item.is-active { color: var(--tea-primary) !important; font-weight: bold; }
+        .el-tabs__active-bar { background-color: var(--tea-primary) !important; }
+        .el-input__wrapper { box-shadow: 0 0 0 1px var(--tea-border) inset !important; background: transparent; }
+        .el-input__wrapper:hover, .el-input__wrapper.is-focus { box-shadow: 0 0 0 1px var(--tea-primary) inset !important; }
     </style>
 </head>
 <body>
 <div id="app">
     <div class="login-box">
-        <div class="title">🍃 茶叶溯源平台</div>
+        <div class="title serif-text">🍵 溯源系统</div>
 
-        <el-tabs v-model="activeTab">
-            <el-tab-pane label="账号登录" name="login">
-                <el-form :model="loginForm" label-position="top">
-                    <el-form-item label="用户名">
-                        <el-input v-model="loginForm.username" placeholder="请输入用户名"></el-input>
+        <el-tabs v-model="activeTab" stretch>
+            <el-tab-pane label="雅客入座" name="login">
+                <el-form :model="loginForm" style="margin-top: 25px;">
+                    <el-form-item>
+                        <el-input v-model="loginForm.username" placeholder="请输入名讳 (用户名)" size="large">
+                            <template #prefix>👤</template>
+                        </el-input>
                     </el-form-item>
-                    <el-form-item label="密码">
-                        <el-input v-model="loginForm.password" type="password" placeholder="请输入密码"></el-input>
+                    <el-form-item>
+                        <el-input v-model="loginForm.password" type="password" placeholder="请输入口令 (密码)" size="large" @keyup.enter="handleLogin">
+                            <template #prefix>🔒</template>
+                        </el-input>
                     </el-form-item>
-                    <el-form-item label="验证码">
-                        <div style="display: flex; gap: 10px; width: 100%;">
-                            <el-input v-model="loginForm.code" placeholder="答案"></el-input>
-                            <img :src="captchaUrl" @click="refreshCaptcha" class="captcha-img" title="点击刷新">
+                    <el-form-item>
+                        <div style="display: flex; gap: 15px; width: 100%;">
+                            <el-input v-model="loginForm.code" placeholder="验证码" size="large" @keyup.enter="handleLogin"></el-input>
+                            <img :src="captchaUrl" @click="refreshCaptcha" class="captcha-img" title="点击更换">
                         </div>
                     </el-form-item>
-                    <el-button type="success" class="submit-btn" @click="handleLogin">立即登录</el-button>
+                    <el-button type="primary" class="submit-btn serif-text" @click="handleLogin" :loading="loading">入 座</el-button>
                 </el-form>
             </el-tab-pane>
 
-            <el-tab-pane label="新用户注册" name="register">
-                <el-form :model="regForm" label-position="top">
-                    <el-form-item label="设置用户名">
-                        <el-input v-model="regForm.username"></el-input>
+            <el-tab-pane label="新客登记" name="register">
+                <el-form :model="regForm" style="margin-top: 25px;">
+                    <el-form-item>
+                        <el-input v-model="regForm.username" placeholder="设置您的名讳" size="large"></el-input>
                     </el-form-item>
-                    <el-form-item label="设置密码">
-                        <el-input v-model="regForm.password" type="password"></el-input>
+                    <el-form-item>
+                        <el-input v-model="regForm.password" type="password" placeholder="设置防伪口令" size="large"></el-input>
                     </el-form-item>
-                    <el-form-item label="账户类型">
-                        <el-radio-group v-model="regForm.role">
-                            <el-radio label="USER">普通用户</el-radio>
-                            <el-radio label="TEST_USER">测试用户(含沙箱权限)</el-radio>
-                        </el-radio-group>
-                    </el-form-item>
-                    <el-button type="success" class="submit-btn" @click="handleRegister">注册账号</el-button>
+                    <el-button type="success" class="submit-btn serif-text" @click="handleRegister" :loading="loading" style="background: #5c7a65; border: none;">登 记</el-button>
                 </el-form>
             </el-tab-pane>
         </el-tabs>
@@ -65,29 +138,64 @@
     createApp({
         setup() {
             const activeTab = ref('login');
+            const loading = ref(false);
             const captchaUrl = ref('/api/auth/captcha?t=' + Date.now());
             const loginForm = ref({ username: '', password: '', code: '' });
-            const regForm = ref({ username: '', password: '', role: 'USER' });
+            const regForm = ref({ username: '', password: '' });
 
             const refreshCaptcha = () => {
                 captchaUrl.value = '/api/auth/captcha?t=' + Date.now();
             };
 
             const handleLogin = async () => {
+                if(!loginForm.value.username || !loginForm.value.password || !loginForm.value.code) {
+                    return ElementPlus.ElMessage.warning('请填写完整信息');
+                }
+                loading.value = true;
                 try {
                     const res = await axios.post('/api/auth/login', loginForm.value);
-                    // 关键点：将后端返回的 User 对象存入本地存储
-                    localStorage.setItem('user', JSON.stringify(res.data));
+                    localStorage.setItem('user', JSON.stringify(res.data.user));
 
-                    ElementPlus.ElMessage.success('登录成功！');
-                    location.href = 'index.html';
+                    ElementPlus.ElMessage.success('入座成功，正在为您备茶...');
+                    setTimeout(() => location.href = 'index.html', 1000);
                 } catch (err) {
-                    ElementPlus.ElMessage.error(err.response.data.message || '登录失败');
+                    let msg = '登录失败';
+                    if (err.response && err.response.data && err.response.data.message) {
+                        msg = err.response.data.message;
+                    }
+                    ElementPlus.ElMessage.error(msg);
                     refreshCaptcha();
+                } finally {
+                    loading.value = false;
                 }
             };
 
-            return { activeTab, captchaUrl, loginForm, regForm, refreshCaptcha, handleLogin };
+            const handleRegister = async () => {
+                if(!regForm.value.username || !regForm.value.password) {
+                    return ElementPlus.ElMessage.warning('请填写完整信息');
+                }
+                loading.value = true;
+                try {
+                    const res = await axios.post('/api/auth/register', {
+                        ...regForm.value,
+                        role: 'USER'
+                    });
+                    if(res.data === 'SUCCESS') {
+                        ElementPlus.ElMessage.success('登记成功，请入座');
+                        activeTab.value = 'login';
+                        loginForm.value.username = regForm.value.username;
+                        regForm.value = { username: '', password: '' }; // 清空注册表单
+                    } else {
+                        ElementPlus.ElMessage.error(res.data);
+                    }
+                } catch (err) {
+                    ElementPlus.ElMessage.error('网络异常，登记失败');
+                } finally {
+                    loading.value = false;
+                }
+            };
+
+            return { activeTab, captchaUrl, loginForm, regForm, refreshCaptcha, handleLogin, handleRegister, loading };
         }
     }).use(ElementPlus).mount('#app');
 </script>
