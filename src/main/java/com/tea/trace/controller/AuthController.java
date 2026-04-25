@@ -1,19 +1,20 @@
-package com.tea.trace.controller; // 必须与目录对应
+package com.tea.trace.controller;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.tea.trace.entity.TeaUser;
 import com.tea.trace.mapper.UserMapper;
-import com.wf.captcha.ArithmeticCaptcha;
 import com.wf.captcha.SpecCaptcha;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.util.DigestUtils;
 import org.springframework.web.bind.annotation.*;
 
 import java.awt.*;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.Map;
 
 @RestController
@@ -25,63 +26,74 @@ public class AuthController {
 
     @GetMapping("/captcha")
     public void captcha(HttpServletRequest request, HttpServletResponse response) throws Exception {
-        // 将 ArithmeticCaptcha 换成 SpecCaptcha (普通字符验证码)
-        // 三个参数分别为：宽、高、字符位数
         SpecCaptcha captcha = new SpecCaptcha(130, 48, 4);
-
-        // 设置字体（可选）
         captcha.setFont(new Font("Verdana", Font.PLAIN, 32));
-
-        // 验证码存入 session
         request.getSession().setAttribute("captcha", captcha.text().toLowerCase());
-
-        // 输出图片流
         captcha.out(response.getOutputStream());
     }
 
-
     @PostMapping("/register")
     public String register(@RequestBody TeaUser user) {
-        // 1. 检查重名
         if (userMapper.selectOne(new LambdaQueryWrapper<TeaUser>().eq(TeaUser::getUsername, user.getUsername())) != null) {
             return "用户名已存在";
         }
-
-        // 2. 【关键修改】初始化用户信息
         if (user.getBalance() == null) {
-            user.setBalance(new BigDecimal("10000.00")); // 赠送1万元体验金
+            user.setBalance(BigDecimal.ZERO);
         }
-        if (user.getRole() == null) {
-            user.setRole("USER"); // 默认角色
-        }
-        user.setCreateTime(LocalDateTime.now()); // 设置注册时间
 
-        // 3. 存入数据库
+
+        String encryptedPassword = DigestUtils.md5DigestAsHex(user.getPassword().getBytes());
+        user.setPassword(encryptedPassword);
+
+
+        if ("admin".equals(user.getUsername())) {
+            user.setRole("ADMIN");
+        } else if (user.getRole() == null) {
+            user.setRole("USER");
+        }
+        user.setCreateTime(LocalDateTime.now());
         userMapper.insert(user);
         return "SUCCESS";
     }
 
     @PostMapping("/login")
-    public String login(@RequestBody Map<String, String> loginData, HttpSession session) {
+    public Map<String, Object> login(@RequestBody Map<String, String> loginData, HttpSession session, HttpServletResponse response) {
         String username = loginData.get("username");
         String password = loginData.get("password");
         String code = loginData.get("code");
         String sessionCode = (String) session.getAttribute("captcha");
 
-        // 验证码校验
+        Map<String, Object> result = new HashMap<>();
+
+
         if (code == null || !code.equalsIgnoreCase(sessionCode)) {
-            return "验证码错误";
+            response.setStatus(400);
+            result.put("message", "验证码错误");
+            return result;
         }
 
-        // 账号密码校验 [cite: 1]
+
+        String encryptedPassword = DigestUtils.md5DigestAsHex(password.getBytes());
+
+
         TeaUser user = userMapper.selectOne(new LambdaQueryWrapper<TeaUser>()
                 .eq(TeaUser::getUsername, username)
-                .eq(TeaUser::getPassword, password));
+                .and(wrapper -> wrapper.eq(TeaUser::getPassword, encryptedPassword)
+                        .or()
+                        .eq(TeaUser::getPassword, password))
+        );
 
         if (user != null) {
-            session.setAttribute("user", user); // 存入登录状态
-            return "SUCCESS";
+            session.setAttribute("user", user);
+
+            result.put("message", "SUCCESS");
+            user.setPassword(null); // 依然保持返回给前端时抹除密码的好习惯
+            result.put("user", user);
+            return result;
         }
-        return "用户名或密码错误";
+
+        response.setStatus(400);
+        result.put("message", "用户名或密码错误");
+        return result;
     }
 }

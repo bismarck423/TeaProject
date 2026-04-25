@@ -4,13 +4,17 @@ import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
+import java.time.LocalDateTime;
 
 @Data
-@TableName("tea_banner")
-public class TeaBanner {
+@TableName("tea_review")
+public class TeaReview {
     @TableId(type = IdType.AUTO)
     private Long id;
-    private String imageUrl; // 图片路径
-    private String title;    // 轮播标题
-    private Integer sort;    // 排序权重
+    private Long userId;
+    private String username;
+    private Long teaId;
+    private Integer rating;
+    private String content;
+    private LocalDateTime createTime;
 }
